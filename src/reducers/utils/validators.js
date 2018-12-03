@@ -87,7 +87,6 @@ export function validate(domain) {
     validateItem(event, 'events', eventSchema);
   });
   domain.categories.forEach(category => {
-    console.log(category)
     validateItem(category, 'categories', categorySchema);
   });
   domain.sites.forEach(site => {
