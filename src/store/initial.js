@@ -28,6 +28,7 @@ const initial = {
     error: null,
     highlighted: null,
     selected: [],
+    narrative: null,
     filters: {
       timerange: [
           d3.timeParse("%Y-%m-%dT%H:%M:%S")("2014-08-22T12:00:00"),
