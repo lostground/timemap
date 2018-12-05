@@ -61,7 +61,7 @@ class CardStack extends React.Component {
             ? copy[this.props.language].loading
             : `${this.props.selected.length} ${header_lang}`}
         </p>
-        {(this.props.isLoading) ? '' : this.renderLocation()}
+        {/*(this.props.isLoading) ? '' : this.renderLocation()*/}
       </div>
     )
   }
