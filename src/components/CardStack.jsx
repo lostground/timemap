@@ -21,7 +21,6 @@ class CardStack extends React.Component {
           <Card
             event={event}
             language={this.props.language}
-            tools={this.props.tools}
             isLoading={this.props.isLoading}
             getNarrativeLinks={this.props.getNarrativeLinks}
             getCategoryGroup={this.props.getCategoryGroup}
@@ -97,9 +96,8 @@ function mapStateToProps(state) {
   return {
     selected: state.app.selected,
     language: state.app.language,
-    tools: state.ui.tools,
-    isCardstack: state.ui.flags.isCardstack,
-    isLoading: state.ui.flags.isFetchingEvents
+    isCardstack: state.app.flags.isCardstack,
+    isLoading: state.app.flags.isFetchingEvents
   }
 }
 

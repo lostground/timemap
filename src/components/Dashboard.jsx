@@ -14,6 +14,8 @@ import InfoPopUp from './InfoPopup.jsx';
 import Timeline from './Timeline.jsx';
 import Notification from './Notification.jsx';
 
+import { parseDate } from '../js/utilities';
+
 class Dashboard extends React.Component {
   constructor(props) {
     super(props);
@@ -47,10 +49,9 @@ class Dashboard extends React.Component {
   handleSelect(selected) {
     if (selected) {
       let eventsToSelect = selected.map(event => this.getEventById(event.id));
-      const parser = this.props.ui.tools.parser;
 
       eventsToSelect = eventsToSelect.sort((a, b) => {
-        return parser(a.timestamp) - parser(b.timestamp);
+        return parseDate(a.timestamp) - parseDate(b.timestamp);
       });
 
       if (eventsToSelect.every(event => (event))) {
@@ -66,7 +67,7 @@ class Dashboard extends React.Component {
           });
 
           eventsSelected = eventsSelected.sort((a, b) => {
-            return parser(a.timestamp) - parser(b.timestamp);
+            return parseDate(a.timestamp) - parseDate(b.timestamp);
           });
 
           this.props.actions.updateSelected(eventsSelected);
@@ -150,12 +151,12 @@ class Dashboard extends React.Component {
           actions={this.props.actions}
         />
         <Notification
-          isNotification={this.props.ui.flags.isNotification}
+          isNotification={this.props.app.flags.isNotification}
           notifications={this.props.domain.notifications}
           toggle={() => this.handleToggle('TOGGLE_NOTIFICATIONS')}
         />
         <LoadingOverlay
-          ui={this.props.ui.flags.isFetchingDomain}
+          ui={this.props.app.flags.isFetchingDomain}
           language={this.props.app.language}
         />
       </div>

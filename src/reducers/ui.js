@@ -1,59 +1,9 @@
 import initial from '../store/initial.js';
 
-import {
-  TOGGLE_FETCHING_DOMAIN,
-  TOGGLE_FETCHING_EVENTS,
-  TOGGLE_VIEW,
-  TOGGLE_TIMELINE,
-  TOGGLE_INFOPOPUP,
-  TOGGLE_NOTIFICATIONS
-} from '../actions'
-
-function toggleFetchingDomain(uiState, action) {
-  return Object.assign({}, uiState, {
-    flags: Object.assign({}, uiState.flags, {
-      isFetchingDomain: !uiState.flags.isFetchingDomain
-    })
-  });
-}
-
-function toggleFetchingEvents(uiState, action) {
-  return Object.assign({}, uiState, {
-    flags: Object.assign({}, uiState.flags, {
-      isFetchingEvents: !uiState.flags.isFetchingEvents
-    })
-  });
-}
-
-function toggleInfoPopup(uiState, action) {
-  return Object.assign({}, uiState, {
-    flags: Object.assign({}, uiState.flags, {
-      isInfopopup: !uiState.flags.isInfopopup
-    })
-  });
-}
-
-function toggleNotifications(uiState, action) {
-  return Object.assign({}, uiState, {
-    flags: Object.assign({}, uiState.flags, {
-      isNotification: !uiState.flags.isNotification
-    })
-  });
-}
+import {} from '../actions'
 
 function ui(uiState = initial.ui, action) {
-  switch (action.type) {
-    case TOGGLE_FETCHING_DOMAIN:
-      return toggleFetchingDomain(uiState, action);
-    case TOGGLE_FETCHING_EVENTS:
-      return toggleFetchingEvents(uiState, action);
-    case TOGGLE_INFOPOPUP:
-      return toggleInfoPopup(uiState, action);
-    case TOGGLE_NOTIFICATIONS:
-      return toggleNotifications(uiState, action);
-    default:
-      return uiState;
-  }
+  return uiState;
 }
 
 export default ui;
