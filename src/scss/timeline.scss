@@ -1,25 +1,30 @@
+$timeline-height: 170px;
 
 .timeline-wrapper {
   position: fixed;
   box-sizing: border-box;
   left: 110px;
   right: 0px;
-  height: 170px;
+  height: $timeline-height;
   background: rgba($black, 0.8);
   box-shadow: 0 -10px 38px rgba(0, 0, 0, 0.3), 0 15px 12px rgba(0, 0, 0, 0.22);
   color: white;
-  transition: 0.2s ease;
+  transition: left 0.2s ease, bottom 0.2s ease;
   bottom: 0px;
   z-index: $timeline;
 
   &.folded {
-    transition: 0.2s ease;
-    bottom: -170px;
+    transition: bottom 0.2s ease;
 
     .timeline-header .timeline-toggle p .arrow-down {
       transform: translate(0, 5px)rotate(-135deg);
       -webkit-transform: translate(0, 5px)rotate(-135deg);
     }
+  }
+
+  &.narrative-mode {
+    left: 0;
+    transition: left 0.2s ease;
   }
 
   .timeline-header {
@@ -63,6 +68,10 @@
     }
 
     .timeline-info {
+      &.hidden {
+        display: none;
+      }
+      width: calc(#{$card-width} - 20px);
       position: absolute;
       margin-top: -70px;
       margin-left: 10px;
@@ -78,15 +87,16 @@
         &:first-child {
           text-transform: none;
           font-size: $normal;
-          letter-spacing: 0.05;
+          letter-spacing: 0.05em;
         }
       }
     }
   }
 
   .timeline-content {
-    height: 160px;
-    padding-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 
     .timeline-labels {
       padding-top: 2px;
@@ -164,20 +174,32 @@
 
       .yAxis {
         .tick line {
-          stroke-width: 15px;
+          stroke: white; // $midwhite;
           cursor: -webkit-grab;
           cursor: -moz-grab;
         }
+
+        .tick text {
+          font-size: 10px;
+          font-family: 'Lato';
+          text-anchor: end;
+        }
+      }
+
+      .drag-grabber {
+        cursor: -webkit-grab;
+        cursor: -moz-grab;
+        fill: $offwhite;
+        opacity: 0.05;
       }
 
       .axisBoundaries {
         stroke: $offwhite;
         stroke-width: 1;
-        stroke-dasharray: 1px 4px;
+        stroke-dasharray: 1px 2px;
       }
 
       .event {
-        fill: $event_default;
         cursor: pointer;
         opacity: .7;
 
@@ -188,9 +210,7 @@
 
       .timeline-marker {
         fill: none;
-        stroke: $offwhite;
-        stroke-width: 2;
-        stroke-dasharray: 5px 2px;
+        transition: transform 0.2s ease;
       }
 
       .coevent {

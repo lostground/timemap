@@ -1,80 +1,195 @@
-import initial from '../store/initial.js';
+import initial from '../store/initial.js'
+import { toggleFlagAC } from '../common/utilities'
 
 import {
   UPDATE_HIGHLIGHTED,
   UPDATE_SELECTED,
-  UPDATE_TAGFILTERS,
+  CLEAR_FILTER,
+  TOGGLE_FILTER,
   UPDATE_TIMERANGE,
-  RESET_ALLFILTERS,
+  UPDATE_DIMENSIONS,
+  UPDATE_NARRATIVE,
+  INCREMENT_NARRATIVE_CURRENT,
+  DECREMENT_NARRATIVE_CURRENT,
+  UPDATE_SOURCE,
   TOGGLE_LANGUAGE,
+  TOGGLE_SITES,
+  TOGGLE_FETCHING_DOMAIN,
+  TOGGLE_FETCHING_SOURCES,
+  TOGGLE_INFOPOPUP,
+  TOGGLE_NOTIFICATIONS,
+  TOGGLE_COVER,
   FETCH_ERROR,
-} from '../actions';
+  FETCH_SOURCE_ERROR,
+  SET_LOADING,
+  SET_NOT_LOADING
+} from '../actions'
 
-function updateHighlighted(appState, action) {
+function updateHighlighted (appState, action) {
   return Object.assign({}, appState, {
     highlighted: action.highlighted
-  });
+  })
 }
 
-function updateSelected(appState, action) {
+function updateSelected (appState, action) {
   return Object.assign({}, appState, {
     selected: action.selected
-  });
+  })
 }
 
-function updateTagFilters(appState, action) {
-  const tagFilters = appState.filters.tags.slice(0);
-  const nextActiveState = action.tag.active
+function updateNarrative (appState, action) {
+  let minTime = appState.timeline.range[0]
+  let maxTime = appState.timeline.range[1]
 
-  function traverseNode(node) {
-    const tagFilter = tagFilters.find(tF => tF.key === node.key);
-    node.active = nextActiveState;
-    if (!tagFilter) tagFilters.push(node);
+  let cornerBound0 = [180, 180]
+  let cornerBound1 = [-180, -180]
 
-    if (node && Object.keys(node.children).length > 0) {
-      Object.values(node.children).forEach((childNode) => { traverseNode(childNode); });
+  // Compute narrative time range and map bounds
+  if (action.narrative) {
+    minTime = appState.timeline.rangeLimits[0]
+    maxTime = appState.timeline.rangeLimits[1]
+
+    // Find max and mins coordinates of narrative events
+    action.narrative.steps.forEach(step => {
+      const stepTime = step.datetime
+      if (stepTime < minTime) minTime = stepTime
+      if (stepTime > maxTime) maxTime = stepTime
+
+      if (!!step.longitude && !!step.latitude) {
+        if (+step.longitude < cornerBound0[1]) cornerBound0[1] = +step.longitude
+        if (+step.longitude > cornerBound1[1]) cornerBound1[1] = +step.longitude
+        if (+step.latitude < cornerBound0[0]) cornerBound0[0] = +step.latitude
+        if (+step.latitude > cornerBound1[0]) cornerBound1[0] = +step.latitude
+      }
+    })
+    // Adjust bounds to center around first event, while keeping visible all others
+    // Takes first event, finds max ditance with first attempt bounds, and use this max distance
+    // on the other side, both in latitude and longitude
+    const first = action.narrative.steps[0]
+    if (!!first.longitude && !!first.latitude) {
+      const firstToLong0 = Math.abs(+first.longitude - cornerBound0[1])
+      const firstToLong1 = Math.abs(+first.longitude - cornerBound1[1])
+      const firstToLat0 = Math.abs(+first.latitude - cornerBound0[0])
+      const firstToLat1 = Math.abs(+first.latitude - cornerBound1[0])
+
+      if (firstToLong0 > firstToLong1) cornerBound1[1] = +first.longitude + firstToLong0
+      if (firstToLong0 < firstToLong1) cornerBound0[1] = +first.longitude - firstToLong1
+      if (firstToLat0 > firstToLat1) cornerBound1[0] = +first.latitude + firstToLat0
+      if (firstToLat0 < firstToLat1) cornerBound0[0] = +first.latitude - firstToLat1
     }
+
+    // Add some buffer on both sides of the time extent
+    minTime = minTime - Math.abs((maxTime - minTime) / 10)
+    maxTime = maxTime + Math.abs((maxTime - minTime) / 10)
   }
 
-  traverseNode(action.tag);
-
-  return Object.assign({}, appState, {
-    filters: Object.assign({}, appState.filters, {
-      tags: tagFilters
-    })
-  });
+  return {
+    ...appState,
+    narrative: action.narrative,
+    narrativeState: {
+      current: action.narrative ? 0 : null
+    },
+    filters: {
+      ...appState.filters,
+      timerange: [minTime, maxTime],
+      mapBounds: (action.narrative) ? [cornerBound0, cornerBound1] : null
+    }
+  }
 }
 
-function updateTimeRange(appState, action) { // XXX
-  return Object.assign({}, appState, {
-    filters: Object.assign({}, appState.filters, {
-      timerange: action.timerange
-    }),
-  });
+function incrementNarrativeCurrent (appState, action) {
+  appState.narrativeState.current += 1
+
+  return {
+    ...appState,
+    narrativeState: {
+      current: appState.narrativeState.current
+    }
+  }
 }
 
-function resetAllFilters(appState) { // XXX
-  return Object.assign({}, appState, {
-    filters: Object.assign({}, appState.filters, {
-      tags: [],
-      categories: [],
-      timerange: [
-        d3.timeParse("%Y-%m-%dT%H:%M:%S")("2014-09-25T12:00:00"),
-        d3.timeParse("%Y-%m-%dT%H:%M:%S")("2014-09-28T12:00:00")
-      ],
-    }),
-    selected: [],
-  });
+function decrementNarrativeCurrent (appState, action) {
+  appState.narrativeState.current -= 1
+
+  return {
+    ...appState,
+    narrativeState: {
+      current: appState.narrativeState.current
+    }
+  }
 }
 
-function toggleLanguage(appState, action) {
-  let otherLanguage = (appState.language === 'es-MX') ? 'en-US' : 'es-MX';
+function toggleFilter (appState, action) {
+  if (!(action.value instanceof Array)) {
+    action.value = [action.value]
+  }
+
+  let newFilters = appState.filters[action.filter].slice(0)
+  action.value.forEach(vl => {
+    if (newFilters.includes(vl)) {
+      newFilters = newFilters.filter(s => s !== vl)
+    } else {
+      newFilters.push(vl)
+    }
+  })
+
+  return {
+    ...appState,
+    filters: {
+      ...appState.filters,
+      [action.filter]: newFilters
+    }
+  }
+}
+
+function clearFilter (appState, action) {
+  return {
+    ...appState,
+    filters: {
+      ...appState.filters,
+      [action.filter]: []
+    }
+  }
+}
+
+function updateTimeRange (appState, action) { // XXX
+  return {
+    ...appState,
+    timeline: {
+      ...appState.timeline,
+      range: action.timerange
+    }
+  }
+}
+
+function updateDimensions (appState, action) {
+  return {
+    ...appState,
+    timeline: {
+      ...appState.timeline,
+      dimensions: {
+        ...appState.timeline.dimensions,
+        ...action.dims
+      }
+    }
+  }
+}
+
+function toggleLanguage (appState, action) {
+  let otherLanguage = (appState.language === 'es-MX') ? 'en-US' : 'es-MX'
   return Object.assign({}, appState, {
     language: action.language || otherLanguage
-  });
+  })
 }
 
-function fetchError(state, action) {
+function updateSource (appState, action) {
+  return {
+    ...appState,
+    source: action.source
+  }
+}
+
+function fetchError (state, action) {
   return {
     ...state,
     error: action.message,
@@ -82,26 +197,86 @@ function fetchError(state, action) {
   }
 }
 
+const toggleSites = toggleFlagAC('isShowingSites')
+const toggleFetchingDomain = toggleFlagAC('isFetchingDomain')
+const toggleFetchingSources = toggleFlagAC('isFetchingSources')
+const toggleInfoPopup = toggleFlagAC('isInfopopup')
+const toggleNotifications = toggleFlagAC('isNotification')
+const toggleCover = toggleFlagAC('isCover')
 
-function app(appState = initial.app, action) {
-  switch (action.type) {
-    case UPDATE_HIGHLIGHTED:
-      return updateHighlighted(appState, action);
-    case UPDATE_SELECTED:
-      return updateSelected(appState, action);
-    case UPDATE_TAGFILTERS:
-      return updateTagFilters(appState, action);
-    case UPDATE_TIMERANGE:
-      return updateTimeRange(appState, action);
-    case RESET_ALLFILTERS:
-      return resetAllFilters(appState, action);
-    case TOGGLE_LANGUAGE:
-      return toggleLanguage(appState, action);
-    case FETCH_ERROR:
-      return fetchError(appState, action);
-    default:
-      return appState;
+function fetchSourceError (appState, action) {
+  return {
+    ...appState,
+    errors: {
+      ...appState.errors,
+      source: action.msg
+    }
   }
 }
 
-export default app;
+function setLoading (appState) {
+  return {
+    ...appState,
+    loading: true
+  }
+}
+
+function setNotLoading (appState) {
+  return {
+    ...appState,
+    loading: false
+  }
+}
+
+function app (appState = initial.app, action) {
+  switch (action.type) {
+    case UPDATE_HIGHLIGHTED:
+      return updateHighlighted(appState, action)
+    case UPDATE_SELECTED:
+      return updateSelected(appState, action)
+    case CLEAR_FILTER:
+      return clearFilter(appState, action)
+    case TOGGLE_FILTER:
+      return toggleFilter(appState, action)
+    case UPDATE_TIMERANGE:
+      return updateTimeRange(appState, action)
+    case UPDATE_DIMENSIONS:
+      return updateDimensions(appState, action)
+    case UPDATE_NARRATIVE:
+      return updateNarrative(appState, action)
+    case INCREMENT_NARRATIVE_CURRENT:
+      return incrementNarrativeCurrent(appState, action)
+    case DECREMENT_NARRATIVE_CURRENT:
+      return decrementNarrativeCurrent(appState, action)
+    case UPDATE_SOURCE:
+      return updateSource(appState, action)
+    /* toggles */
+    case TOGGLE_LANGUAGE:
+      return toggleLanguage(appState, action)
+    case TOGGLE_SITES:
+      return toggleSites(appState)
+    case TOGGLE_FETCHING_DOMAIN:
+      return toggleFetchingDomain(appState)
+    case TOGGLE_FETCHING_SOURCES:
+      return toggleFetchingSources(appState)
+    case TOGGLE_INFOPOPUP:
+      return toggleInfoPopup(appState)
+    case TOGGLE_NOTIFICATIONS:
+      return toggleNotifications(appState)
+    case TOGGLE_COVER:
+      return toggleCover(appState)
+    /* errors */
+    case FETCH_ERROR:
+      return fetchError(appState, action)
+    case FETCH_SOURCE_ERROR:
+      return fetchSourceError(appState, action)
+    case SET_LOADING:
+      return setLoading(appState)
+    case SET_NOT_LOADING:
+      return setNotLoading(appState)
+    default:
+      return appState
+  }
+}
+
+export default app

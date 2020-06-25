@@ -1,137 +1,152 @@
-import {
-  createSelector
-} from 'reselect'
+import { createSelector } from 'reselect'
+import { insetSourceFrom, dateMin, dateMax } from '../common/utilities'
+import { isTimeRangedIn } from './helpers'
 
 // Input selectors
 export const getEvents = state => state.domain.events
-export const getLocations = state => state.domain.locations
 export const getCategories = state => state.domain.categories
-export const getSites = (state) => {
-  if (process.env.features.USE_SITES) return state.domain.sites
-  return []
-}
-export const getNotifications = state => state.domain.notifications;
-export const getTagTree = state => state.domain.tags;
-export const getTagsFilter = state => state.app.filters.tags;
-export const getTimeRange = state => state.app.filters.timerange;
+export const getNarratives = state => state.domain.narratives
+export const getActiveNarrative = state => state.app.narrative
+export const getActiveStep = state => state.app.narrativeState.current
+export const getSelected = state => state.app.selected
+export const getSites = state => state.domain.sites
+export const getSources = state => state.domain.sources
+export const getShapes = state => state.domain.shapes
+export const getNotifications = state => state.domain.notifications
+export const getFilterTree = state => state.domain.filters
+export const getActiveFilters = state => state.app.filters.filters
+export const getActiveCategories = state => state.app.filters.categories
+export const getTimeRange = state => state.app.timeline.range
+export const getTimelineDimensions = state => state.app.timeline.dimensions
+export const selectNarrative = state => state.app.narrative
+export const getFeatures = state => state.features
+export const getEventRadius = state => state.ui.eventRadius
 
-/**
-* Some handy helpers
-*/
-const parseTimestamp = ts => d3.timeParse("%Y-%m-%dT%H:%M:%S")(ts);
-
-/**
- * Given an event and all tags,
- * returns true/false if event has any tag that is active
- */
-function isTaggedIn(event, tagFilters) {
-  if (event.tags) {
-    const tagsInEvent = event.tags.split(",");
-    const isTagged = tagsInEvent.some((tag) => {
-      return tagFilters.find(tF => (tF.key === tag && tF.active));
-    });
-    return isTagged;
-  } else {
-    return false
+export const selectSites = createSelector([getSites, getFeatures], (sites, features) => {
+  if (features.USE_SITES) {
+    return sites.filter(s => !!(+s.enabled))
   }
-}
+  return []
+})
 
-/*
-* Returns true if no tags are selected
-*/
-function isNoTags(tagFilters) {
-  return (
-    tagFilters.length === 0
-    || !process.env.features.USE_TAGS
-    || tagFilters.every(t => !t.active)
-  );
-}
+export const selectSources = createSelector([getSources, getFeatures], (sources, features) => {
+  if (features.USE_SOURCES) return sources
+  return {}
+})
 
-/**
- * Given an event and a time range,
- * returns true/false if the event falls within timeRange
- */
-function isTimeRangedIn(event, timeRange) {
-  return (
-    timeRange[0] < parseTimestamp(event.timestamp)
-    && parseTimestamp(event.timestamp) < timeRange[1]
-  );
-}
+export const selectShapes = createSelector([getShapes, getFeatures], (shapes, features) => {
+  if (features.USE_SHAPES) return shapes
+  return []
+})
 
 /**
- * Of all available events, selects those that fall within the time range,
- * and if TAGS are being used, select them if their tags are enabled
+ * Of all available events, selects those that
+ * 1. fall in time range
+ * 2. exist in an active filter
+ * 3. exist in an active category
  */
 export const selectEvents = createSelector(
-    [getEvents, getTagsFilter, getTimeRange],
-    (events, tagFilters, timeRange) => {
+  [getEvents, getActiveFilters, getActiveCategories, getTimeRange, getFeatures],
+  (events, activeFilters, activeCategories, timeRange, features) => {
+    return events.reduce((acc, event) => {
+      const isMatchingFilter = (event.filters &&
+        event.filters.map(filter =>
+          activeFilters.includes(filter))
+          .some(s => s)
+      ) || activeFilters.length === 0
+      const isActiveFilter = isMatchingFilter || activeFilters.length === 0
+      const isActiveCategory = activeCategories.includes(event.category) || activeCategories.length === 0
+      let isActiveTime = isTimeRangedIn(event, timeRange)
+      isActiveTime = features.GRAPH_NONLOCATED
+        ? ((!event.latitude && !event.longitude) || isActiveTime)
+        : isActiveTime
 
-      return events.reduce((acc, event) => {
-        const isTagged = isTaggedIn(event, tagFilters) || isNoTags(tagFilters);
-        const isTimeRanged = isTimeRangedIn(event, timeRange);
+      if (isActiveTime && isActiveFilter && isActiveCategory) {
+        acc[event.id] = { ...event }
+      }
 
-        if (isTimeRanged && isTagged) {
-          const eventClone = Object.assign({}, event);
-          acc[event.id] = eventClone;
-        }
-
-        return acc;
-    }, []);
-});
+      return acc
+    }, [])
+  })
 
 /**
  * Of all available events, selects those that fall within the time range,
- * and if TAGS are being used, select them if their tags are enabled
+ * and if filters are being used, select them if their filters are enabled
  */
 export const selectNarratives = createSelector(
-    [getEvents, getTagsFilter, getTimeRange],
-    (events, tagFilters, timeRange) => {
+  [getEvents, getNarratives, getSources, getFeatures],
+  (events, narrativesMeta, sources, features) => {
+    if (!features.USE_NARRATIVES) {
+      return []
+    }
+    const narratives = {}
+    const narrativeSkeleton = id => ({ id, steps: [] })
 
-      const narratives = {};
-      events.forEach((evt) => {
-        const isTagged = isTaggedIn(evt, tagFilters) || isNoTags(tagFilters);
-        const isTimeRanged = isTimeRangedIn(evt, timeRange);
-        const isInNarrative =  evt.narrative;
+    /* populate narratives dict with events */
+    events.forEach(evt => {
+      const isInNarrative = evt.narratives.length > 0
 
-        if (isTimeRanged && isTagged && isInNarrative) {
-          if (!narratives[evt.narrative]) {
-            narratives[evt.narrative] = { key: evt.narrative, steps: [], byId: {} };
-          }
-          narratives[evt.narrative].steps.push(evt);
-          narratives[evt.narrative].byId[evt.id] = { next: null, prev: null };
+      evt.narratives.forEach(narrative => {
+        // initialise
+        if (!narratives[narrative]) { narratives[narrative] = narrativeSkeleton(narrative) }
+
+        // add evt to steps
+        if (isInNarrative) {
+          // NB: insetSourceFrom is a 'curried' function to allow with maps
+          narratives[narrative].steps.push(insetSourceFrom(sources)(evt))
         }
-      });
+      })
+    })
 
-      Object.keys(narratives).forEach((key) => {
-        const steps = narratives[key].steps;
-        steps.sort((a, b) => {
-          return (parseTimestamp(a.timestamp) > parseTimestamp(b.timestamp));
-        });
-        steps.forEach((step, i) => {
-          narratives[key].byId[step.id].next = (i < steps.length - 2) ? steps[i + 1] : null;
-          narratives[key].byId[step.id].prev = (i > 0) ? steps[i - 1] : null;
-        });
-      });
+    /* sort steps by time */
+    Object.keys(narratives).forEach(key => {
+      const steps = narratives[key].steps
 
-      return Object.values(narratives);
-});
+      steps.sort((a, b) => a.datetime - b.datetime)
+
+      if (narrativesMeta.find(n => n.id === key)) {
+        narratives[key] = {
+          ...narrativesMeta.find(n => n.id === key),
+          ...narratives[key]
+        }
+      }
+    })
+
+    // Return narratives in original order
+    // + filter those that are undefined
+    return narrativesMeta.map(n => narratives[n.id]).filter(d => d)
+  })
+
+/** Aggregate information about the narrative and the current step into
+ *  a single object. If narrative is null, the whole object is null.
+ */
+export const selectActiveNarrative = createSelector(
+  [getActiveNarrative, getActiveStep],
+  (narrative, current) => narrative
+    ? { ...narrative, current }
+    : null
+)
 
 /**
- * Of all the filtered events, group them by location and return a list of
- * locations with at least one event in it, based on the time range and tags
+ * Group events by location. Each location is an object:
+  {
+    events: [...],
+    label: 'Location name',
+    latitude: '47.7',
+    longitude: '32.2'
+  }
  */
 export const selectLocations = createSelector(
   [selectEvents],
   (events) => {
-
-    const selectedLocations = {};
+    const activeLocations = {}
     events.forEach(event => {
-      const location = event.location;
+      const location = event.location
 
-      if (selectedLocations[location]) {
-        selectedLocations[location].events.push(event);
+      if (activeLocations[location]) {
+        activeLocations[location].events.push(event)
       } else {
-        selectedLocations[location] = {
+        activeLocations[location] = {
           label: location,
           events: [event],
           latitude: event.latitude,
@@ -140,61 +155,111 @@ export const selectLocations = createSelector(
       }
     })
 
-    return Object.values(selectedLocations);
+    return Object.values(activeLocations)
   }
-);
+)
 
+export const selectEventsWithProjects = createSelector(
+  [selectEvents, getFeatures, getEventRadius],
+  (events, features, eventRadius) => {
+    if (!features.GRAPH_NONLOCATED) {
+      return [events, []]
+    }
+    const projSize = 2 * eventRadius
+    const projectIdx = features.GRAPH_NONLOCATED.projectIdx || 0
+    const getProject = ev => ev.filters[projectIdx]
+    const projects = {}
 
-/*
-* Select categories, return them as a list
-*/
-export const selectCategories = createSelector(
-  [getCategories],
-  (categories) => {
-    return categories.map(v => v.category);
+    // get all projects
+    events = events.reduce((acc, event) => {
+      const project = event.filters.length >= 1 && !event.latitude && !event.longitude ? getProject(event) : null
+
+      // add project if it doesn't exist
+      if (project !== null) {
+        if (projects.hasOwnProperty(project)) {
+          projects[project].start = dateMin(projects[project].start, event.datetime)
+          projects[project].end = dateMax(projects[project].end, event.datetime)
+        } else {
+          projects[project] = {
+            start: event.datetime,
+            end: event.datetime,
+            key: project,
+            category: event.category
+          }
+        }
+      }
+      acc.push({ ...event, project })
+      return acc
+    }, [])
+
+    let projObjs = Object.values(projects)
+    projObjs.sort((a, b) => a.start - b.start)
+
+    // active projects is a data structure with projObjs.length empty slots
+    let activeProjs = Object.keys(projects).map((_, idx) => null)
+
+    const projectsWithOffset = projObjs.reduce((acc, proj, theIdx) => {
+      // remove any project that have ended from slots
+      activeProjs.forEach((theProj, theProjIdx) => {
+        if (theProj !== null) {
+          const projInSlot = projects[theProj]
+          if (projInSlot.end < proj.start) {
+            activeProjs[theProjIdx] = null
+          }
+        }
+      })
+      let i = 0
+      // find the first empty slot
+      while (activeProjs[i]) i++
+      // put proj in slot
+      activeProjs[i] = proj.key
+
+      proj.offset = i * projSize
+      acc[proj.key] = proj
+      return acc
+    }, {})
+
+    return [events, projectsWithOffset]
   }
-);
+)
+
+export const selectStackedEvents = createSelector(
+  [selectEventsWithProjects],
+  eventsWithProjects => {
+    return eventsWithProjects[0]
+  }
+)
+
+export const selectProjects = createSelector(
+  [selectEventsWithProjects, getFeatures],
+  (eventsWithProjects, features) => {
+    if (!features.GRAPH_NONLOCATED) {
+      return []
+    }
+    return eventsWithProjects[1]
+  }
+)
 
 /**
- * Return categories by group
+ * Of all the sources, select those that are relevant to the selected events.
  */
-export const selectCategoryGroups = createSelector(
-  [selectCategories],
-  (categories) => {
-    const groups = {};
-    categories.forEach((cat) => {
-      if (cat.group && !groups[cat.group]) {
-        groups[cat.group] = cat.group_label;
-      }
-    });
-    return Object.keys(groups).concat(['other']);
+export const selectSelected = createSelector(
+  [getSelected, getSources],
+  (selected, sources) => {
+    if (selected.length === 0) {
+      return []
+    }
+
+    return selected.map(insetSourceFrom(sources))
   }
-);
+)
 
-/**
- * Given a tree of tags, return those tags as a list
- * Each node has been aware of its depth, and given an 'active' flag
- */
-export const selectTagList = createSelector(
-  [getTagTree],
-  (tags) => {
-    const tagList = [];
-    let depth = 0;
-    function traverseNode(node, depth) {
-      node.active = (!node.hasOwnProperty('active')) ? false : node.active;
-      node.depth = depth;
-
-      if (node.active) tagList.push(node)
-
-      if (Object.keys(node.children).length > 0) {
-        Object.values(node.children).forEach((childNode) => {
-          traverseNode(childNode, depth + 1);
-        });
-      }
+export const selectDimensions = createSelector(
+  [getTimelineDimensions],
+  (dimensions) => {
+    return {
+      ...dimensions,
+      trackHeight: dimensions.contentHeight - 50 // height of time labels
     }
-    if (tags && tags !== undefined) {
-      if (tags.key && tags.children) traverseNode(tags, depth)
-    }
-    return tagList;
   }
 )

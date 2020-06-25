@@ -1,115 +1,119 @@
-import copy from '../js/data/copy.json';
-import {isNotNullNorUndefined} from '../js/data/utilities';
-import React from 'react';
+import copy from '../common/data/copy.json'
+import React from 'react'
 
-import Spinner from './presentational/Spinner';
-import CardTimestamp from './presentational/CardTimestamp';
-import CardLocation from './presentational/CardLocation';
-import CardCaret from './presentational/CardCaret';
-import CardTags from './presentational/CardTags';
-import CardSummary from './presentational/CardSummary';
-import CardSource from './presentational/CardSource';
-import CardCategory from './presentational/CardCategory';
-import CardNarrative from './presentational/CardNarrative';
+import CardTime from './presentational/Card/Time'
+import CardLocation from './presentational/Card/Location'
+import CardCaret from './presentational/Card/Caret'
+import CardFilters from './presentational/Card/Filters'
+import CardSummary from './presentational/Card/Summary'
+import CardSource from './presentational/Card/Source'
+import CardNarrative from './presentational/Card/Narrative'
 
 class Card extends React.Component {
-
-  constructor(props) {
-    super(props);
+  constructor (props) {
+    super(props)
     this.state = {
-      isHighlighted: false
-    };
+      isOpen: false
+    }
   }
 
-  toggle() {
+  toggle () {
     this.setState({
-      isHighlighted: !this.state.isHighlighted
-    }, () => {
-      if (!this.state.isHighlighted) {
-        this.props.highlight(this.props.event);
-      } else {
-        this.props.highlight(null);
-      }
-    });
+      isOpen: !this.state.isOpen
+    })
   }
 
-  makeTimelabel(timestamp) {
-    if (timestamp === null) return null;
-    const parsedTimestamp = this.props.tools.parser(timestamp);
-    const timelabel = this.props.tools.formatterWithYear(parsedTimestamp);
-    return timelabel;
+  makeTimelabel (datetime) {
+    if (datetime === null) return null
+    return datetime.toLocaleDateString()
   }
 
-  renderCategory() {
-    const categoryTitle = copy[this.props.language].cardstack.category;
-    const categoryLabel = this.props.event.category;
-    const color = this.props.getCategoryColor(this.props.event.category);
-
-    return (
-      <CardCategory
-        categoryTitle={categoryTitle}
-        categoryLabel={categoryLabel}
-        color={color}
-      />
-    );
-  }
-
-  renderSummary() {
+  renderSummary () {
     return (
       <CardSummary
         language={this.props.language}
         description={this.props.event.description}
-        isHighlighted={this.state.isHighlighted}
+        isOpen={this.state.isOpen}
       />
     )
   }
 
-  renderTags() {
+  renderFilters () {
+    if (!this.props.filters || (this.props.filters && this.props.filters.length === 0)) {
+      return null
+    }
     return (
-      <CardTags
-        tags={this.props.tags || []}
+      <CardFilters
+        filters={this.props.filters || []}
         language={this.props.language}
       />
     )
   }
 
-  renderLocation() {
+  renderLocation () {
     return (
       <CardLocation
         language={this.props.language}
         location={this.props.event.location}
+        isPrecise={(!this.props.event.type || this.props.event.type === 'Structure')}
       />
     )
   }
 
-  renderSource() {
+  renderSources () {
+    if (this.props.sourceError) {
+      return <div>ERROR: something went wrong loading sources, TODO:</div>
+    }
+
+    const sourceLang = copy[this.props.language].cardstack.sources
     return (
-      <CardSource
-        language={this.props.language}
-        source={this.props.event.source}
-      />
+      <div className='card-col'>
+        <h4>{sourceLang}: </h4>
+        {this.props.event.sources.map(source => (
+          <CardSource
+            isLoading={this.props.isLoading}
+            source={source}
+            onClickHandler={source => this.props.onViewSource(source)}
+          />
+        ))}
+      </div>
     )
   }
 
   // NB: should be internaionalized.
-  renderTimestamp() {
+  renderTime () {
+    let timelabel = this.makeTimelabel(this.props.event.datetime)
+
+    let precision = this.props.event.time_display
+    if (precision === '_date_only') {
+      precision = ''
+      timelabel = timelabel.substring(0, 11)
+    } else if (precision === '_approximate_date_only') {
+      precision = ' (Approximate date)'
+      timelabel = timelabel.substring(0, 11)
+    } else if (precision === '_approximate_datetime') {
+      precision = ' (Approximate datetime)'
+    } else {
+      timelabel = timelabel.substring(0, 11)
+    }
+
     return (
-      <CardTimestamp
-        makeTimelabel={(timestamp) => this.makeTimelabel(timestamp)}
+      <CardTime
+        makeTimelabel={timelabel}
         language={this.props.language}
-        timestamp={this.props.event.timestamp}
+        timelabel={timelabel}
+        precision={precision}
       />
-    );
+    )
   }
 
-  renderNarrative() {
-    const links = this.props.getNarrativeLinks(this.props.event);
+  renderNarrative () {
+    const links = this.props.getNarrativeLinks(this.props.event)
 
     if (links !== null) {
-
       return (
         <CardNarrative
-          select={(event) => this.props.select([event])}
+          select={(event) => this.props.onSelect([event])}
           makeTimelabel={(timestamp) => this.makeTimelabel(timestamp)}
           next={links.next}
           prev={links.prev}
@@ -118,65 +122,53 @@ class Card extends React.Component {
     }
   }
 
-  renderLoadingCard() {
+  renderMain () {
     return (
-      <li className='event-card'>
-        <div className="card-bottomhalf">
-          <Spinner />
+      <div className='card-container'>
+        <div className='card-row details'>
+          {this.renderTime()}
+          {this.renderLocation()}
         </div>
-      </li>
-    );
-  }
-
-  renderHeader() {
-    return (
-      <div className="card-collapsed">
-        {this.renderCategory()}
-        {this.renderTimestamp()}
         {this.renderSummary()}
       </div>
-    );
-  }
-
-  renderContent() {
-    if (!this.state.isHighlighted) {
-      return (
-        <div className="card-bottomhalf folded"></div>
-      );
-    } else {
-      return (
-        <div className="card-bottomhalf">
-          {this.renderLocation()}
-          {this.renderTags()}
-          {this.renderSource()}
-          {this.renderNarrative()}
-        </div>
-      );
-    }
-  }
-
-  renderCaret() {
-    return (
-      <CardCaret
-        toggle={() => this.toggle()}
-        isHighlighted={this.state.isHighlighted}
-      />
     )
   }
 
-  render() {
-    if (this.props.isLoading) {
-      return this.renderLoadingCard();
-    } else {
-      return (
-        <li className='event-card'>
-          {this.renderHeader()}
-          {this.renderContent()}
-          {this.renderCaret()}
-        </li>
-      );
-    }
+  renderExtra () {
+    return (
+      <div className='card-bottomhalf'>
+        {this.renderFilters()}
+        {this.renderSources()}
+        {this.renderNarrative()}
+      </div>
+    )
+  }
+
+  renderCaret () {
+    return this.props.features.USE_SOURCES ? (
+      <CardCaret
+        toggle={() => this.toggle()}
+        isOpen={this.state.isOpen}
+      />
+    ) : null
+  }
+
+  render () {
+    const { isSelected, idx } = this.props
+
+    return (
+      <li
+        className={`event-card ${isSelected ? 'selected' : ''}`}
+        id={`event-card-${idx}`}
+        ref={this.props.innerRef}
+      >
+        {this.renderMain()}
+        {this.state.isOpen ? this.renderExtra() : null}
+        {isSelected ? this.renderCaret() : null}
+      </li>
+    )
   }
 }
 
-export default Card;
+// The ref to each card will be used in CardStack for programmatic scrolling
+export default React.forwardRef((props, ref) => <Card innerRef={ref} {...props} />)

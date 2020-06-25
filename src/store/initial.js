@@ -1,155 +1,158 @@
+import { mergeDeepLeft } from 'ramda'
+import global from '../common/global'
+
 const initial = {
   /*
-  * The Domain or 'domain' of this state refers to the tree of data
-  *  available for render and display.
-  * Selections and filters in the 'app' subtree will operate the domain
-  *   in mapStateToProps of the Dashboard, and deterimne which items
-  *   in the domain will get rendered by React
-  */
+   * The Domain or 'domain' of this state refers to the tree of data
+   *  available for render and display.
+   * Selections and filters in the 'app' subtree will operate the domain
+   *   in mapStateToProps of the Dashboard, and deterimne which items
+   *   in the domain will get rendered by React
+   */
   domain: {
     events: [],
     narratives: [],
     locations: [],
     categories: [],
+    sources: {},
     sites: [],
-    tags: {},
-    notifications: [],
+    filters: {},
+    notifications: []
   },
 
   /*
-  * The 'app' subtree of this state determines the data and information to be
-  *   displayed.
-  * It may refer to those the user interacts with, by selecting,
-  *   fitlering and so on, which ultimately operate on the data to be displayed.
-  * Additionally, some of the 'app' flags are determined by the config file
-  *   or by the characteristics of the client, browser, etc.
-  */
+   * The 'app' subtree of this state determines the data and information to be
+   *   displayed.
+   * It may refer to those the user interacts with, by selecting,
+   *   fitlering and so on, which ultimately operate on the data to be displayed.
+   * Additionally, some of the 'app' flags are determined by the config file
+   *   or by the characteristics of the client, browser, etc.
+   */
   app: {
-    error: null,
+    errors: {
+      source: null
+    },
     highlighted: null,
     selected: [],
+    source: null,
+    narrative: null,
+    narrativeState: {
+      current: null
+    },
     filters: {
-      timerange: [
-          d3.timeParse("%Y-%m-%dT%H:%M:%S")("2013-02-23T12:00:00"),
-          d3.timeParse("%Y-%m-%dT%H:%M:%S")("2016-02-23T12:00:00")
-      ],
-      tags: [],
+      filters: [],
       categories: [],
       views: {
         events: true,
-        coevents: false,
         routes: false,
         sites: true
-      },
-    },
-    base_uri: 'http://127.0.0.1:8000/', // Modify accordingly on production setup.
-    isMobile: (/Mobi/.test(navigator.userAgent)),
-    language: 'en-US',
-    mapAnchor: process.env.MAP_ANCHOR,
-    zoomLevels: [{
-      label: '3 años',
-      duration: 1576800,
-      active: false
-    },
-    {
-      label: '3 meses',
-      duration: 129600,
-      active: false
-    },
-    {
-      label: '3 días',
-      duration: 4320,
-      active: false
-    },
-    {
-      label: '12 horas',
-      duration: 720,
-      active: false
-    },
-    {
-      label: '2 horas',
-      duration: 120,
-      active: false
-    },
-    {
-      label: '30 min',
-      duration: 30,
-      active: false
-    },
-    {
-      label: '10 min',
-      duration: 10,
-      active: false
-    }],
-    features: {
-      USE_TAGS: process.env.features.USE_TAGS,
-      USE_SEARCH: process.env.features.USE_SEARCH
-    }
-  },
-
-  /*
-  * The 'ui' subtree of this state refers the state of the cosmetic
-  *   elements of the application, such as color palettes of groups or how some
-  *   of the UI tools are enabled or disabled dynamically by the user
-  */
-  ui: {
-    style: {
-
-      colors: {
-        WHITE: "#efefef",
-        YELLOW: "#ffd800",
-        MIDGREY: "rgb(44, 44, 44)",
-        DARKGREY: "#232323",
-        PINK: "#F28B50",//rgb(232, 9, 90)",
-        ORANGE: "#F25835",//rgb(232, 9, 90)",
-        RED: "rgb(233, 0, 19)",
-        BLUE: "#F2DE79",//"rgb(48, 103 , 217)",
-        GREEN: "#4FF2F2",//"rgb(0, 158, 86)",
-      },
-
-      palette: d3.schemeCategory10,
-
-      categories: {
-        default: 'red',
-        // Add here other categories to differentiate by color, like:
-        alpha: '#00ff00',
-        beta: '#ff0000',
-        other: 'yellow'
-      },
-
-      narratives: {
-        default: {
-          style: 'dotted',                  // ['dotted', 'solid']
-          opacity: 0.9,                     // range between 0 and 1
-          stroke: 'red',               // Any hex or rgb code
-          strokeWidth: 2
-        },
-        narrative_1: {
-          style: 'solid',                  // ['dotted', 'solid']
-          opacity: 0.4,                     // range between 0 and 1
-          stroke: 'red',               // Any hex or rgb code
-          strokeWidth: 2
-        }
       }
     },
-    dom: {
-      timeline: "timeline",
-      timeslider: "timeslider",
-      map: "map"
+    isMobile: (/Mobi/.test(navigator.userAgent)),
+    language: 'en-US',
+    map: {
+      anchor: [31.356397, 34.784818],
+      startZoom: 11,
+      minZoom: 6,
+      maxZoom: 18,
+      bounds: null,
+      maxBounds: [[180, -180], [-180, 180]]
+    },
+    timeline: {
+      dimensions: {
+        height: 250,
+        width: 0,
+        marginLeft: 100,
+        marginTop: 15,
+        marginBottom: 60,
+        contentHeight: 200,
+        width_controls: 100
+      },
+      range: [
+        new Date(2001, 2, 23, 12),
+        new Date(2021, 2, 23, 12)
+      ],
+      zoomLevels: [
+        { label: '20 years', duration: 10512000 },
+        { label: '2 years', duration: 1051200 },
+        { label: '3 months', duration: 129600 },
+        { label: '3 days', duration: 4320 },
+        { label: '12 hours', duration: 720 },
+        { label: '1 hour', duration: 60 }
+      ]
     },
     flags: {
       isFetchingDomain: false,
       isFetchingSources: false,
-
+      isCover: true,
       isCardstack: true,
-      isInfopopup: false
+      isInfopopup: false,
+      isShowingSites: true
     },
-    tools: {
-      formatter: d3.timeFormat("%d %b, %H:%M"),
-      formatterWithYear: d3.timeFormat("%d %b %Y, %H:%M"),
-      parser: d3.timeParse("%Y-%m-%dT%H:%M:%S")
-    }
-  }
-};
+    cover: {
+      title: 'project title',
+      subtitle: 'project subtitle',
+      description: 'A description of the project goes here.\n\nThis description may contain markdown.\n\n# This is a large title, for example.\n\n## Whereas this is a slightly smaller title.\n\nCheck out docs/custom-covers.md in the [Timemap GitHub repo](https://github.com/forensic-architecture/timemap) for more information around how to specify custom covers.'
+    },
+    loading: false
+  },
 
-export default initial;
+  /*
+   * The 'ui' subtree of this state refers the state of the cosmetic
+   *   elements of the application, such as color palettes of categories
+   *   as well as dom elements to attach SVG
+   */
+  ui: {
+    tiles: 'openstreetmap', // ['openstreetmap', 'streets', 'satellite']
+    style: {
+      categories: {
+        default: global.fallbackEventColor
+      },
+      narratives: {
+        default: {
+          opacity: 0.9,
+          stroke: global.fallbackEventColor,
+          strokeWidth: 3
+        }
+      },
+      shapes: {
+        default: {
+          stroke: 'blue',
+          strokeWidth: 3,
+          opacity: 0.9
+        }
+      }
+    },
+    dom: {
+      timeline: 'timeline',
+      timeslider: 'timeslider',
+      map: 'map'
+    },
+    eventRadius: 8
+  },
+
+  features: {
+    USE_COVER: false,
+    USE_FILTERS: false,
+    USE_SEARCH: false,
+    USE_SITES: false,
+    USE_SOURCES: false,
+    USE_SHAPES: false,
+    USE_NARRATIVES: false,
+    GRAPH_NONLOCATED: false,
+    HIGHLIGHT_GROUPS: false
+  }
+}
+
+let appStore
+if (process.env.store) {
+  appStore = mergeDeepLeft(process.env.store, initial)
+} else {
+  appStore = initial
+}
+
+// NB: config.js dates get implicitly converted to strings in mergeDeepLeft
+appStore.app.timeline.range[0] = new Date(appStore.app.timeline.range[0])
+appStore.app.timeline.range[1] = new Date(appStore.app.timeline.range[1])
+
+export default appStore

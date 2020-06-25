@@ -1,53 +1,103 @@
-import React from 'react';
+import React from 'react'
 import { connect } from 'react-redux'
 import * as selectors from '../selectors'
 
-import Card from './Card.jsx';
-import copy from '../js/data/copy.json';
-import {
-  isNotNullNorUndefined
-} from '../js/data/utilities.js';
+import Card from './Card.jsx'
+import copy from '../common/data/copy.json'
 
 class CardStack extends React.Component {
-
-  constructor(props) {
-    super(props);
+  constructor () {
+    super()
+    this.refs = {}
+    this.refCardStack = React.createRef()
+    this.refCardStackContent = React.createRef()
   }
 
-  renderCards() {
-    if (this.props.selected.length > 0) {
-      return this.props.selected.map((event) => {
-        return (
-          <Card
-            event={event}
-            language={this.props.language}
-            tools={this.props.tools}
-            getNarrativeLinks={this.props.getNarrativeLinks}
-            getCategoryGroup={this.props.getCategoryGroup}
-            getCategoryColor={this.props.getCategoryColor}
-            getCategoryLabel={this.props.getCategoryLabel}
-            highlight={this.props.onHighlight}
-            select={this.props.onSelect}
-          />
-        );
-      });
+  componentDidUpdate () {
+    const isNarrative = !!this.props.narrative
+
+    if (isNarrative) {
+      this.scrollToCard()
     }
-    return '';
   }
 
-  renderLocation() {
-    let locationName = copy[this.props.language].cardstack.unknown_location;
-    if (this.props.selected.length > 0) {
-      if (isNotNullNorUndefined(this.props.selected[0].location)) {
-        locationName = this.props.selected[0].location;
-      }
-      return (<p className="header-copy">in:<b>{` ${locationName}`}</b></p>)
+  scrollToCard () {
+    const duration = 500
+    const element = this.refCardStack.current
+    const cardScroll = this.refs[this.props.narrative.current].current.offsetTop
+
+    let start = element.scrollTop
+    let change = cardScroll - start
+    let currentTime = 0
+    const increment = 20
+
+    // t = current time
+    // b = start value
+    // c = change in value
+    // d = duration
+    Math.easeInOutQuad = function (t, b, c, d) {
+      t /= d / 2
+      if (t < 1) return c / 2 * t * t + b
+      t -= 1
+      return -c / 2 * (t * (t - 2) - 1) + b
     }
-    return '';
+
+    const animateScroll = function () {
+      currentTime += increment
+      const val = Math.easeInOutQuad(currentTime, start, change, duration)
+      element.scrollTop = val
+      if (currentTime < duration) setTimeout(animateScroll, increment)
+    }
+    animateScroll()
   }
 
-  renderCardStackHeader() {
-    const header_lang = copy[this.props.language].cardstack.header;
+  renderCards (events, selections) {
+    // if no selections provided, select all
+    if (!selections) { selections = events.map(e => true) }
+    this.refs = []
+
+    return events.map((event, idx) => {
+      const thisRef = React.createRef()
+      this.refs[idx] = thisRef
+      return (<Card
+        event={event}
+        ref={thisRef}
+        sourceError={this.props.sourceError}
+        language={this.props.language}
+        isLoading={this.props.isLoading}
+        isSelected={selections[idx]}
+        getNarrativeLinks={this.props.getNarrativeLinks}
+        getCategoryGroup={this.props.getCategoryGroup}
+        getCategoryColor={this.props.getCategoryColor}
+        getCategoryLabel={this.props.getCategoryLabel}
+        onViewSource={this.props.onViewSource}
+        onHighlight={this.props.onHighlight}
+        onSelect={this.props.onSelect}
+        features={this.props.features}
+      />)
+    })
+  }
+
+  renderSelectedCards () {
+    const { selected } = this.props
+    if (selected.length > 0) {
+      return this.renderCards(selected)
+    }
+    return null
+  }
+
+  renderNarrativeCards () {
+    const { narrative } = this.props
+    const showing = narrative.steps
+
+    const selections = showing
+      .map((_, idx) => (idx === narrative.current))
+
+    return this.renderCards(showing, selections)
+  }
+
+  renderCardStackHeader () {
+    const headerLang = copy[this.props.language].cardstack.header
 
     return (
       <div
@@ -55,44 +105,80 @@ class CardStack extends React.Component {
         className='card-stack-header'
         onClick={() => this.props.onToggleCardstack()}
       >
-        <button className="side-menu-burg is-active"><span></span></button>
-        <p className="header-copy top">
-          {`${this.props.selected.length} ${header_lang}`}
+        <button className='side-menu-burg is-active'><span /></button>
+        <p className='header-copy top'>
+          {`${this.props.selected.length} ${headerLang}`}
         </p>
       </div>
     )
   }
 
-  renderCardStackContent() {
+  renderCardStackContent () {
     return (
-      <div id="card-stack-content" className="card-stack-content">
+      <div id='card-stack-content' className='card-stack-content'>
         <ul>
-          {this.renderCards()}
+          {this.renderSelectedCards()}
         </ul>
       </div>
-    );
+    )
   }
 
-  render() {
-    if (this.props.selected.length > 0) {
-      return (
-        <div id="card-stack" className={`card-stack ${this.props.isCardstack ? '' : ' folded'}`}>
-          {this.renderCardStackHeader()}
-          {this.renderCardStackContent()}
-        </div>
-      );
+  renderNarrativeContent () {
+    return (
+      <div id='card-stack-content' className='card-stack-content'
+        ref={this.refCardStackContent}
+      >
+        <ul>
+          {this.renderNarrativeCards()}
+        </ul>
+      </div>
+    )
+  }
+
+  render () {
+    const { isCardstack, selected, narrative } = this.props
+
+    if (selected.length > 0) {
+      if (!narrative) {
+        return (
+          <div
+            id='card-stack'
+            className={`card-stack
+            ${isCardstack ? '' : ' folded'}`
+            }
+          >
+            {this.renderCardStackHeader()}
+            {this.renderCardStackContent()}
+          </div>
+        )
+      } else {
+        return (
+          <div
+            id='card-stack'
+            ref={this.refCardStack}
+            className={`card-stack narrative-mode
+            ${isCardstack ? '' : ' folded'}`
+            }
+          >
+            {this.renderNarrativeContent()}
+          </div>
+        )
+      }
     }
-    return <div/>;
+
+    return <div />
   }
 }
 
-function mapStateToProps(state) {
+function mapStateToProps (state) {
   return {
-    selected: state.app.selected,
+    narrative: selectors.selectActiveNarrative(state),
+    selected: selectors.selectSelected(state),
+    sourceError: state.app.errors.source,
     language: state.app.language,
-    tools: state.ui.tools,
-    isCardstack: state.ui.flags.isCardstack,
-    isFetchingSources: state.ui.flags.isFetchingSources
+    isCardstack: state.app.flags.isCardstack,
+    isLoading: state.app.flags.isFetchingSources,
+    features: state.features
   }
 }
 
