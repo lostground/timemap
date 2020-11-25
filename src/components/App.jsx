@@ -1,16 +1,13 @@
-import '../scss/main.scss';
-import React from 'react';
-import Dashboard from './Dashboard.jsx';
+import '../scss/main.scss'
+import React from 'react'
+import Layout from './Layout'
 
 class App extends React.Component {
-
-  render() {
+  render () {
     return (
-      <div>
-        <Dashboard />
-      </div>
-    );
+      <Layout />
+    )
   }
 }
 
-export default App;
+export default App

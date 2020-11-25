@@ -15,22 +15,20 @@
 
   .leaflet-container {
     height: 100%;
-
-    img.leaflet-tile {
-      -webkit-filter: contrast(120%) brightness(115%) grayscale(95%); /* Webkit */
-     filter: gray; /* IE6-9 */
-     filter: contrast(120%) brightness(115%) grayscale(95%); /* W3C */
-    }
   }
 
   &.hidden {
     z-index: $hidden;
   }
   &.show {
-      z-index: $map;
+    z-index: $map;
   }
+  &.narrative-mode {
+    left: 0;
+  }
+
   .event {
-    fill: $yellow;
+    fill: $event_default;
     cursor: pointer;
     opacity: 0.45;
   }
@@ -45,15 +43,28 @@
   .site-label {
     background: rgba($black,0.6);
     color: #fff;
-    padding: 2px 7px;
+    padding: 5px;
     font-weight: 500;
     font-size: 11px;
-    font-family: 'Lato', Helvetica, sans-serif;
     border: rgba($black,0.6);
     letter-spacing: 0.05em;
 
     &::before {
       border-top-color: rgba($black,0.6);
+    }
+  }
+
+  .sites-layer, .shapes-layer {
+    position: fixed;
+    top: 0px;
+    left: 110px;
+  }
+
+  &.narrative-mode {
+    .sites-layer, .shapes-layer {
+      position: fixed;
+      top: 0px;
+      left: 0px;
     }
   }
 }
@@ -132,10 +143,15 @@
   pointer-events: auto;
 }
 
+
 .eventLocationMarker {
   fill: none;
   stroke: $yellow;
   stroke-width: 2;
+}
+
+.leaflet-tile {
+  filter: brightness(110%) invert(100%) grayscale(800%) contrast(80%);
 }
 
 /*
@@ -143,34 +159,45 @@
 * Elements
 */
 
-.location-event-marker {
-  stroke-width: 0;
-  transition: 0.2s ease;
-  fill-opacity: 0.8;
-  cursor: pointer;
+.event-hover {
+  opacity: 0;
+}
 
-  &:hover {
-    transition: 0.2s ease;
-    fill-opacity: 1;
+.event-hover:hover {
+  opacity: 1;
+}
+
+.narrative-mode {
+}
+
+.location-event {
+  cursor: pointer;
+}
+
+.cluster-event {
+  cursor: pointer;
+}
+
+.location-event-marker {
+  pointer-events: all !important;
+  fill: $event_default;
+  stroke-width: 0;
+
+  &.blue {
+    fill: blue;
   }
 }
 
-.coevent-marker {
-  fill-opacity: 0.1;
-  stroke-dasharray: 8px 4px;
-  stroke-width: 2px;
-  opacity: 1;
-}
-.coevent-path {
-  stroke-dasharray: 8px 4px;
-  stroke-width: 2;
+.cluster-event-marker {
+  pointer-events: all !important;
+
+  &.red {
+    fill: red;
+  }
 }
 
-.district-boundaries {
-  fill: $red;
-  fill-opacity: 0.3;
-  stroke-width: 2;
-  stroke: $red;
+.narrative-step-arrow {
+  pointer-events: all !important;
 }
 
 .path-polyline {
@@ -178,46 +205,13 @@
   stroke-width: 2px;
 }
 
-.route-polyline {
-  transition: 0.2s ease;
-  stroke: $darkgrey;
-
-  &:hover {
-    transition: 0.2s ease;
-    stroke: $black;
-  }
+.no-hover {
+  cursor: grab;
 }
 
-.district-popup {
-  button {
-    height: 80px;
-    line-height: 80px;
-    width: 200px;
-    padding: 0;
-    border: none;
-    background: none;
-    background-size: 100%;
-    color: $offwhite;
-    cursor: pointer;
-    outline: none;
-    font-family: 'Lato', Helvetica, sans-serif;
-    text-transform: uppercase;
-
-    p {
-      font-size: $normal;
-      margin: 0;
-      transition: 0.2s ease;
-      letter-spacing: 0.1em;
-      &:first-child {
-        font-size: $xsmall;
-      }
-    }
-
-    &:hover {
-      p:last-child {
-        transition: 0.2s ease;
-        letter-spacing: 0.15em;
-      }
-    }
-  }
+// no hover styles for events when in narrative mode
+.narrative-mode {
+  .event-hover:hover { opacity: 0; }
+  .no-hover { cursor: inherit; }
 }
+

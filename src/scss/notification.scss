@@ -21,7 +21,6 @@
   padding: 20px;
   margin-bottom: 10px;
   box-sizing: border-box;
-  font-family: 'Lato', 'Helvetica', sans-serif;
   font-size: $large;
   transition: opacity 0.5s ease 0.1s, z-index 0.1s ease 0s;
   opacity: 1;
@@ -57,15 +56,23 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    border-radius: 3px;
+    margin-top: 10px;
+    padding: 10px;
+    background: $darkgrey;
+    color: $offwhite;
+    font-family: monospace;
 
     &.true {
       height: auto;
-      transition: height 0.4s;
+      transition: height 0.4s, margin 0.4s;
     }
 
     &.false {
       height: 0;
-      transition: height 0.4s;
+      padding: 0;
+      margin: 0;
+      transition: height 0.4s, margin 0.4s;
     }
   }
 }

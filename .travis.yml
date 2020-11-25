@@ -1,0 +1,15 @@
+language: node_js
+node_js:
+  - "stable"
+cache:
+  directories:
+    - node_modules
+before_script:
+  - npm install -g yarn
+  - cp example.config.js config.js
+install:
+  - yarn
+script:
+  - yarn lint
+  - yarn build
+  - yarn test

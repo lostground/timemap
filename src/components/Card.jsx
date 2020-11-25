@@ -1,230 +1,161 @@
-import '../scss/main.scss';
-import copy from '../js/data/copy.json';
-import {isNotNullNorUndefined} from '../js/data/utilities';
-import React from 'react';
+import copy from '../common/data/copy.json'
+import React from 'react'
+
+import CardCustomField from './presentational/Card/CustomField'
+import CardTime from './presentational/Card/Time'
+import CardLocation from './presentational/Card/Location'
+import CardCaret from './presentational/Card/Caret'
+import CardSummary from './presentational/Card/Summary'
+import CardSource from './presentational/Card/Source'
+import { makeNiceDate } from '../common/utilities'
 
 class Card extends React.Component {
-
-  constructor(props) {
-    super(props);
+  constructor (props) {
+    super(props)
     this.state = {
-      isFolded: true
-    };
-
-    this.toggle = this.toggle.bind(this);
+      isOpen: false
+    }
   }
 
-  toggle() {
-    if (this.state.isFolded) {
-      this.props.highlight(this.props.event);
-    } else {
-      this.props.highlight();
-    }
+  toggle () {
     this.setState({
-      isFolded: !this.state.isFolded
-    });
+      isOpen: !this.state.isOpen
+    })
   }
 
-  getCategoryColorClass(category) {
-    if (category)
-      return this.props.getCategoryGroup(category);
-    return 'other';
+  makeTimelabel (datetime) {
+    return makeNiceDate(datetime)
   }
 
-  renderWarning() {
-    const warning_lang = copy[this.props.language].cardstack.warning;
-
-    if (this.props.event.tags) {
-      const tagsArray = this.props.event.tags.split(",");
-      /* TODO: This needs to be generalized */
-      if (tagsArray.some(tag => {
-        return (tag.name === 'contradicción' ||
-         tag.name === 'declaración con sospecha de tortura')
-      })) {
-        return (<div className="warning event-card-section">{warning_lang}</div>);
-      }
+  handleCardSelect (e) {
+    if (!e.target.className.includes('arrow-down')) {
+      const selectedEventFormat = this.props.idx > 0 ? [this.props.event] : this.props.event
+      this.props.onSelect(selectedEventFormat, this.props.idx)
     }
   }
 
-  renderCategory() {
-    const category_lang = copy[this.props.language].cardstack.category;
-
-    const colorType = this.getCategoryColorClass(this.props.event.category);
-    const categoryLabel = this.props.getCategoryLabel(this.props.event.category);
-
-    return (<div className="event-card-section category">
-      <h4>{category_lang}</h4>
-      <p><span className={`color-category ${colorType}`}/>{categoryLabel}</p>
-    </div>);
+  renderSummary () {
+    return (
+      <CardSummary
+        language={this.props.language}
+        description={this.props.event.description}
+        isOpen={this.state.isOpen}
+      />
+    )
   }
 
-  // NB: is this function for a future feature?
-  renderIncidents() {
-    const incident_type_lang = copy[this.props.language].cardstack.incident_type;
-    const incidentTags = []; //this.props.event.tags.filter(tag => tag.type === 'incident_type');
-
-    return (<div className="event-card-section event-type">
-      <h4>{incident_type_lang}</h4>
-      {
-        incidentTags.map((tag, idx) => {
-          return (<span className={(
-              tag.name === 'contradicción' || tag.name === 'declaración con sospecha de tortura')
-              ? ' flagged'
-              : ''}>
-            {tag.name}{
-              (idx < incidentTags.length - 1)
-                ? ','
-                : ''
-            }
-          </span>);
-        })
-      }
-    </div>);
+  renderLocation () {
+    return (
+      <CardLocation
+        language={this.props.language}
+        location={this.props.event.location}
+        isPrecise={(!this.props.event.type || this.props.event.type === 'Structure')}
+      />
+    )
   }
 
-  renderSummary() {
-    const summary = copy[this.props.language].cardstack.description;
-    const desc = this.props.event.description;
-    const description = (this.state.isFolded) ? `${desc.substring(0, 40)}...` : desc;
-    return (<div className="event-card-section summary">
-      <h4>{summary}</h4>
-      <p>{description}</p>
-    </div>);
-  }
-
-  renderTags() {
-    const people_lang = copy[this.props.language].cardstack.people;
-    const peopleTags = []; //this.props.event.tags.filter(tag => tag.type === 'people');
-
-    return (<div className="event-card-section tags">
-      <h4>{people_lang}</h4>
-      <p>{
-          peopleTags.map((tag, idx) => {
-            return (<span className="tag">
-              {tag.name}
-              {
-                (idx < peopleTags.length - 1)
-                  ? ','
-                  : ''
-              }
-            </span>);
-          })
-        }</p>
-    </div>);
-  }
-
-  // NB: is this function for a future feature? Should also be internaionalized.
-  renderLocation() {
-    const location_lang = copy[this.props.language].cardstack.location;
-    if (isNotNullNorUndefined(this.props.event.location)) {
-      return (<p className="event-card-section location">
-        <h4>{location_lang}</h4>
-        <p>{this.props.event.location}</p>
-      </p>);
-    } else {
-      return (<p className="event-card-section location">
-        <h4>{location_lang}</h4>
-        <p>Sin localización conocida.</p>
-      </p>);
+  renderSources () {
+    if (this.props.sourceError) {
+      return <div>ERROR: something went wrong loading sources, TODO:</div>
     }
-  }
 
-  renderSource() {
-    const source_lang = copy[this.props.language].cardstack.source;
-    return (<div className="event-card-section source">
-      <h4>{source_lang}</h4>
-      <p>{this.props.event.source}</p>
-    </div>);
+    const sourceLang = copy[this.props.language].cardstack.sources
+    return (
+      <div className='card-col'>
+        <h4>{sourceLang}: </h4>
+        {this.props.event.sources.map(source => (
+          <CardSource
+            isLoading={this.props.isLoading}
+            source={source}
+            onClickHandler={source => this.props.onViewSource(source)}
+          />
+        ))}
+      </div>
+    )
   }
 
   // NB: should be internaionalized.
-  renderTimestamp() {
-    const daytime_lang = copy[this.props.language].cardstack.timestamp;
-    const estimated_lang = copy[this.props.language].cardstack.estimated;
+  renderTime () {
+    let timelabel = this.makeTimelabel(this.props.event.datetime)
 
-    if (isNotNullNorUndefined(this.props.event.timestamp)) {
-      const timestamp = this.props.tools.parser(this.props.event.timestamp);
-      const timelabel = this.props.tools.formatterWithYear(timestamp);
-      return (<div className="event-card-section timestamp">
-        <h4>{daytime_lang}</h4>
-        {timelabel}
-      </div>);
-    } else {
-      return (<div className="event-card-section timestamp">
-        <h4>{daytime_lang}</h4>
-        Hora no conocida
-      </div>);
-    }
+    // let precision = this.props.event.time_display
+    // if (precision === '_date_only') {
+    //   precision = ''
+    //   timelabel = timelabel.substring(0, 11)
+    // } else if (precision === '_approximate_date_only') {
+    //   precision = ' (Approximate date)'
+    //   timelabel = timelabel.substring(0, 11)
+    // } else if (precision === '_approximate_datetime') {
+    //   precision = ' (Approximate datetime)'
+    // } else {
+    //   timelabel = timelabel.substring(0, 11)
+    // }
+
+    return (
+      <CardTime
+        makeTimelabel={timelabel}
+        language={this.props.language}
+        timelabel={timelabel}
+      />
+    )
   }
 
-  renderHeader() {
-    return (<div className="card-collapsed">
-      {this.renderWarning()}
-      {this.renderCategory()}
-      {this.renderTimestamp()}
-      {this.renderSummary()}
-    </div>);
+  renderCustomFields () {
+    return this.props.features.CUSTOM_EVENT_FIELDS
+      .map(field => {
+        const value = this.props.event[field.key]
+        return value ? (
+          <CardCustomField field={field} value={this.props.event[field.key]} />
+        ) : null
+      })
   }
 
-  renderContent() {
-    if (this.state.isFolded) {
-      return (<div className="card-bottomhalf folded"></div>);
-    } else if (this.props.isFetchingEvents) {
-      return (<div className="card-bottomhalf">
-        {this.renderSpinner()}
-      </div>);
-    } else {
-      if (!this.props.event.hasOwnProperty('receiver') && !this.props.event.hasOwnProperty('transmitter')) {
-        return (<div className="card-bottomhalf">
-          {this.renderTimestamp()}
+  renderMain () {
+    return (
+      <div className='card-container'>
+        <div className='card-row details'>
+          {this.renderTime()}
           {this.renderLocation()}
-          {this.renderTags()}
-          {this.renderSource()}
-        </div>);
-      } else {
-        return (<div className="card-bottomhalf">
-          {this.renderTimestamp()}
-          {this.renderTags()}
-          {this.renderSource()}
-        </div>);
-      }
-    }
-  }
-
-
-  renderSpinner() {
-    return (<div className="spinner">
-      <div className="double-bounce1"></div>
-      <div className="double-bounce2"></div>
-    </div>);
-  }
-
-  renderArrow() {
-    let classes = (this.state.isFolded)
-      ? 'arrow-down folded'
-      : 'arrow-down';
-    return (<div className="card-toggle" onClick={() => this.toggle()}>
-      <p>
-        <i className={classes}></i>
-      </p>
-    </div>);
-  }
-
-  render() {
-    if (this.props.isLoading) {
-      return (<li className='event-card'>
-        <div className="card-bottomhalf">
-          {this.renderSpinner()}
         </div>
-      </li>);
-    } else {
-      return (<li className='event-card'>
-        {this.renderHeader()}
-        {this.renderContent()}
-        {this.renderArrow()}
-      </li>);
-    }
+        {this.renderSummary()}
+        {this.renderCustomFields()}
+      </div>
+    )
+  }
+
+  renderExtra () {
+    return (
+      <div className='card-bottomhalf'>
+        {this.renderSources()}
+      </div>
+    )
+  }
+
+  renderCaret () {
+    return this.props.features.USE_SOURCES ? (
+      <CardCaret
+        toggle={() => this.toggle()}
+        isOpen={this.state.isOpen}
+      />
+    ) : null
+  }
+
+  render () {
+    const { isSelected, idx } = this.props
+    return (
+      <li
+        className={`event-card ${isSelected ? 'selected' : ''}`}
+        id={`event-card-${idx}`}
+        ref={this.props.innerRef}
+        onClick={(e) => this.handleCardSelect(e)}
+      >
+        {this.renderMain()}
+        {this.state.isOpen ? this.renderExtra() : null}
+        {this.renderCaret()}
+      </li>
+    )
   }
 }
 
-export default Card;
+// The ref to each card will be used in CardStack for programmatic scrolling
+export default React.forwardRef((props, ref) => <Card innerRef={ref} {...props} />)

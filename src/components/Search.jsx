@@ -1,71 +1,76 @@
-import React from 'react';
-import copy from '../js/data/copy.json';
-import TagFilter from './TagFilter.jsx';
+import React from 'react'
 
-export default class Search extends React.Component {
-  constructor(props) {
-    super(props);
+import { bindActionCreators } from 'redux'
+import { connect } from 'react-redux'
+import * as actions from '../actions'
+
+import '../scss/search.scss'
+
+import SearchRow from './SearchRow.jsx'
+
+class Search extends React.Component {
+  constructor (props) {
+    super(props)
+
     this.state = {
-      searchValue: undefined,
-      searchResults: []
+      isFolded: true
+    }
+    this.onButtonClick = this.onButtonClick.bind(this)
+    this.updateSearchQuery = this.updateSearchQuery.bind(this)
+  }
+
+  onButtonClick () {
+    this.setState(prevState => {
+      return { isFolded: !prevState.isFolded }
+    })
+  }
+
+  updateSearchQuery (e) {
+    let queryString = e.target.value
+    this.props.actions.updateSearchQuery(queryString)
+  }
+
+  render () {
+    let searchResults
+
+    const searchAttributes = ['description', 'location', 'category', 'date']
+
+    if (!this.props.queryString) {
+      searchResults = []
+    } else {
+      searchResults = this.props.events.filter(event =>
+        searchAttributes.some(attribute => event[attribute].toLowerCase().includes(this.props.queryString.toLowerCase()))
+      )
     }
 
-    this.handleSearchChange = this.handleSearchChange.bind(this);
-    this.handleSearchSubmit = this.handleSearchSubmit.bind(this);
-  }
-
-  handleSearchSubmit(e) {
-    e.preventDefault();
-    fetch(`api/search/${this.state.searchValue}`)
-      .then(response => response.json())
-      .then(json => {
-        this.setState({
-          searchResults: json.tags
-        })
-      });
-  }
-
-  handleSearchChange(event) {
-    this.setState({ searchValue: event.target.value });
-  }
-
-  renderSearchResults() {
     return (
-      this.state.searchResults.map(tag => {
-        return (
-          <TagFilter
-            isShowTree={true}
-            tags={this.props.tags}
-            categories={this.props.categories}
-            tagFilters={this.props.tagFilters}
-            categoryFilters={this.props.categoryFilters}
-            filter={this.props.filter}
-            tag={tag}
-            isCategory={this.props.isCategory}
-          />
-        );
-      })
-    );
-  }
-
-  render() {
-    return (
-      <div className="search-content">
-        <h2>{copy[this.props.language].toolbar.panels.search.title}</h2>
-        <form onSubmit={this.handleSearchSubmit}>
-          <input
-            value={this.state.searchValue}
-            onChange={this.handleSearchChange}
-            autoFocus
-            type="text"
-            name="search-input"
-            placeholder={copy[this.props.language].toolbar.panels.search.placeholder}
-          />
-        </form>
-        <ul>
-          {this.renderSearchResults()}
-        </ul>
+      <div class={'search-outer-container' + (this.props.narrative ? ' narrative-mode ' : '')}>
+        <div id='search-bar-icon-container' onClick={this.onButtonClick}>
+          <i className='material-icons'>search</i>
+        </div>
+        <div class={'search-bar-overlay' + (this.state.isFolded ? ' folded' : '')}>
+          <div class='search-input-container'>
+            <input class='search-bar-input' onChange={this.updateSearchQuery} type='text' />
+            <i id='close-search-overlay' className='material-icons' onClick={this.onButtonClick} >close</i>
+          </div>
+          <div class='search-results'>
+            {searchResults.map(result => {
+              return <SearchRow onSearchRowClick={this.props.onSearchRowClick} eventObj={result} query={this.props.queryString} />
+            })}
+          </div>
+        </div>
       </div>
-      );
-    }
+    )
   }
+}
+
+function mapDispatchToProps (dispatch) {
+  return {
+    actions: bindActionCreators(actions, dispatch)
+  }
+}
+
+export default connect(
+  state => state,
+  mapDispatchToProps
+)(Search)
